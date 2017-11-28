@@ -12,7 +12,7 @@ var T = new Twit(require('./config.js'));
 // Data stuff 
 var doc = new GoogleSpreadsheet('1yQ_Ff6iqK3ANekxOLr6RgOC9EDbiA8BMXsu6YVxVd7w');
 var corporaBaseURL = 'https://botwiki.org/api/corpora/data/';
-var corporaData = ['games/pokemon.json', 'film-tv/tv_shows.json', 'science/planets.json', 'words/nouns.json', 'objects/objects.json', 'humans/celebrities.json'];
+var corpora = ['games/pokemon.json', 'film-tv/tv_shows.json', 'science/planets.json', 'words/nouns.json', 'objects/objects.json', 'humans/celebrities.json'];
 
 
 app.get('/', function(req, res){
@@ -22,30 +22,52 @@ app.get('/', function(req, res){
 app.listen(3000);
 
 
-var statement = 'My president is';
+var base = 'My president is ';
 
 function makeSentence() {
-  var num = Math.floor(Math.random() * corporaData.length+1);
-  if (num > corporaData.length) {
+  var num = Math.floor(Math.random() * corpora.length+1);
+  var statement = base;
+  if (num >= corpora.length) {
     doc.getInfo(function(err, info) {
       sheet = info.worksheets[0];
-      sheet.getRows({
-        offset: 1,
-        limit: 20,
-        orderby: 'col2'
-      }, function( err, rows ){
-        console.log('Read '+rows.length+' rows');
+      sheet.getCells({
+      }, function( err, cells ){
+          var rand = Math.floor(Math.random() * cells.length);
+          console.log(cells[rand].value)
+          statement += cells[rand].value;
+          console.log(statement);
+          postToTwitter(statement);
+          statement = '';
       });
     });
   }
   else {
-    var url = corporaBaseURL + corporaData[num];
+    var url = corporaBaseURL + corpora[num];
     client.get(url, function (data, response) {
-      console.log(data);
+      for (key in data) {
+        if (key !== 'description') {
+            var corporaData = data[key];
+            var rand = Math.floor(Math.random() * corporaData.length);
+            console.log(corporaData);
+            var val = corporaData[rand];
+            if (!(typeof val === 'string') && val) {
+              val = val.name;
+            }
+            console.log(val);
+            statement += val;
+            console.log('here is the statement', statement);
+            postToTwitter(statement);
+            statement = '';
+        }
+      }
     });
   }
 }
 
+function postToTwitter(statement) {
+  T.post('statuses/update', { status: statement }, function(err, reply) {
+  });
+}
 function favRTs () {  
   T.get('statuses/retweets_of_me', {}, function (e,r) {
     for(var i=0;i<r.length;i++) {
@@ -55,27 +77,26 @@ function favRTs () {
   });
 }
 
-/*  Every 2 minutes, make and tweet a sentence
+/*  Every 45 minutes, make and tweet a sentence
  *  wrapped in a try/catch in case Twitter is unresponsive,
  *  don't really care about error handling. it just won't tweet. 
  */
 setInterval(function() {
   try {
-    // makeSentence();
+    makeSentence();
   }
  catch (e) {
     console.log(e);
   }
 },5000);
 
-makeSentence();
 
-// // every 5 hours, check for people who have RTed a metaphor, and favorite that metaphor
-// setInterval(function() {
-//   try {
-//     //favRTs();
-//   }
-//  catch (e) {
-//     console.log(e);
-//   }
-// },60000*60*5);
+// every 5 hours, check for people who have RTed a metaphor, and favorite that metaphor
+setInterval(function() {
+  try {
+    favRTs();
+  }
+ catch (e) {
+    console.log(e);
+  }
+},60000*60*5);
