@@ -66,8 +66,10 @@ function makeSentence() {
 
 function postToTwitter(statement) {
   T.post('statuses/update', { status: statement }, function(err, reply) {
+    console.log(err);
   });
 }
+
 function favRTs () {  
   T.get('statuses/retweets_of_me', {}, function (e,r) {
     for(var i=0;i<r.length;i++) {
